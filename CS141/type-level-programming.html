@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang=" en-US">
+
+<head>
+
+    
+    <meta charset="UTF-8"><!-- Include tocNAV javascript -->
+    <script type="text/javascript" src="/assets/js/tocNav.js"></script>
+
+    <!-- seo used to be here -->
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link rel="preload" href="https://fonts.googleapis.com/css?family=Open+Sans:400,700&display=swap" as="style"
+        type="text/css" crossorigin>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#157878">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <title>CS141 Type Level Programming</title>
+</head>
+
+<body>
+    <div id="mainGrid" class="container">
+        <header style="padding:10px;" class="page-header notes-header" role="banner">
+            <h1 class="project-name">Type Level Programming</h1>
+        </header>
+        <div title="Table of Contents" class="buttonCol" onclick="toggleNav()">
+            <div class="navArrow">
+                <i></i>
+            </div>
+        </div>
+        <div class="navBox">
+            <div id="sidenav" class="sideNav closedNav">
+                <h2 style="margin-left: 10px;">Table of Contents</h2><ul class="table-of-contents"><li><a href="#kinds">Kinds</a><ul><li><a href="#kinds--better-code">Kinds = Better Code</a></li><li><a href="#finding-the-kind">Finding the kind</a></li></ul></li><li><a href="#type-promotion">Type promotion</a></li><li><a href="#gadts">GADTs</a><ul><li><a href="#singleton-types">Singleton Types</a></li></ul></li><li><a href="#proxy-types">Proxy Types</a></li></ul>
+</div>
+        </div>
+        
+        <div class="contents">
+            <main id="content" class="main-content" role="main">
+                <div class="partNav"><a href="/CS141/FAM.html" title="Functors, Applicatives, Monads">👈Prev</a><a href="./" title="CS141 Home">🏡CS141</a></div>
+                <!-- Main Content of markdown or sub-layouts-->
+                <!-- Each module has its own layout to allow module layouts to be customised -->
+<!-- The layout name is also used by the notes layout to display the correct module code -->
+
+<h2 id="kinds">Kinds</h2>
+
+<blockquote>
+  <p>Just like how expressions have <strong>types</strong>, types have <strong>kinds</strong>.</p>
+</blockquote>
+
+<div class="language-haskell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">expression</span> <span class="o">::</span> <span class="kr">type</span> <span class="c1">-- type signature</span>
+<span class="kr">type</span>  <span class="o">::</span> <span class="n">kind</span>      <span class="c1">-- kind signature</span>
+<span class="kt">Bool</span>  <span class="o">::</span> <span class="o">*</span>
+<span class="kt">Maybe</span> <span class="o">::</span> <span class="o">*</span> <span class="o">-&gt;</span> <span class="o">*</span>
+</code></pre></div></div>
+
+<p>For example, the type <code class="language-plaintext highlighter-rouge">Bool</code> has kind <code class="language-plaintext highlighter-rouge">*</code> (star) because <code class="language-plaintext highlighter-rouge">Bool</code> has no parameters. On the other hand, <code class="language-plaintext highlighter-rouge">Maybe</code> is of kind <code class="language-plaintext highlighter-rouge">* -&gt; *</code> (star to star), as we know that <code class="language-plaintext highlighter-rouge">Maybe</code> is a <strong>type constructor</strong> and has 1 parameter.</p>
+
+<p><code class="language-plaintext highlighter-rouge">* -&gt; *</code> basically says that if you give this <strong>kind</strong> a type as an argument, then it gives back a type.</p>
+
+<p><code class="language-plaintext highlighter-rouge">[] :: * -&gt; *</code> is another example – given a type <code class="language-plaintext highlighter-rouge">a</code> to the <strong>list</strong> type constructor and it will give <code class="language-plaintext highlighter-rouge">[a]</code> (a list of <code class="language-plaintext highlighter-rouge">a</code>).</p>
+
+<h3 id="kinds--better-code">Kinds = Better Code</h3>
+
+<p>Kinds help us code instances better, as long as we understand it.</p>
+
+<div class="language-haskell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">Monad</span> <span class="o">::</span> <span class="p">(</span><span class="o">*</span> <span class="o">-&gt;</span> <span class="o">*</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">Constraint</span>
+<span class="kr">instance</span> <span class="kt">Monad</span> <span class="kt">Either</span> <span class="kr">where</span> <span class="o">...</span> 
+<span class="c1">-- Error: Expected kind * -&gt; * but Either has kind * -&gt; * -&gt; *</span>
+</code></pre></div></div>
+
+<p>In this example, it is easy to see why we get an error, because <code class="language-plaintext highlighter-rouge">Monad</code> is a type class that takes a type of kind <code class="language-plaintext highlighter-rouge">* -&gt; *</code> (basically a type constructor) and gives a <code class="language-plaintext highlighter-rouge">Constraint</code>. So giving it a type of kind <code class="language-plaintext highlighter-rouge">* -&gt; * -&gt; *</code> violates this constraint.</p>
+
+<p>You can think of type classes as a constraint constructor, although this isn’t a standard term so don’t use it!</p>
+
+<h3 id="finding-the-kind">Finding the kind</h3>
+
+<p>In the Haskell repl, we have seen we can use <code class="language-plaintext highlighter-rouge">:t &lt;VALUE&gt;</code> to find the type of a given value or variable. Similarly, we can find the kind of a type using <code class="language-plaintext highlighter-rouge">:k &lt;TYPE&gt;</code>, and additionally reduce the type to a normal form with <code class="language-plaintext highlighter-rouge">:kind! &lt;TYPE&gt;</code>.</p>
+
+<h2 id="type-promotion">Type promotion</h2>
+
+<p>Using Haskell language extensions, we are able to create our own <strong>kinds</strong> of types. This feature is not in Haskell by default, so we need to add a language extension to use it. We can use the Haskell extension <code class="language-plaintext highlighter-rouge">XDataKinds</code> in three ways:</p>
+
+<ol>
+  <li>
+    <p>Writing the following at the top of our source file, as <em>language pragma</em>:</p>
+
+    <div class="language-haskell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">{-# LANGUAGE XDataKinds #-}</span>
+   
+<span class="kr">module</span> <span class="nn">Program</span> <span class="kr">where</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+    <p>Modifying the <code class="language-plaintext highlighter-rouge">.cabal</code> file for the entire target</p>
+
+    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>library
+        ...
+    default-extensions: DataKinds
+</code></pre></div>    </div>
+  </li>
+  <li>
+    <p>With flags on the command line (requires specification every time)</p>
+
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>ghc Program.hs <span class="nt">-XDataKinds</span>
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<p>Usually we use Language Pragmas.</p>
+
+<blockquote>
+  <p><strong>DataKinds</strong> is the language extension that allows us to create our own <strong>kinds</strong>.</p>
+</blockquote>
+
+<p>With <code class="language-plaintext highlighter-rouge">DataKinds</code> enabled, each data type we define not only introduces a type with some constructor but also introduces</p>
+
+<ul>
+  <li>a new kind which has the same name as the data type</li>
+  <li>additional data types – have the same name as the data constructors but preceded with a <code class="language-plaintext highlighter-rouge">'</code>.
+    <ul>
+      <li>These additional data types are of the new kind that is introduced.</li>
+    </ul>
+  </li>
+</ul>
+
+<p><strong>Example.</strong> Here we are getting a <strong>type-level</strong> boolean of <strong>kind</strong> <code class="language-plaintext highlighter-rouge">Bool</code>.</p>
+
+<div class="language-haskell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kr">data</span> <span class="kt">Bool</span> <span class="o">=</span> <span class="kt">True</span> <span class="o">|</span> <span class="kt">False</span>
+  <span class="kt">True</span>  <span class="o">::</span> <span class="kt">Bool</span> <span class="c1">-- type signature</span>
+  <span class="kt">False</span> <span class="o">::</span> <span class="kt">Bool</span>
+<span class="c1">-- With DataKinds enabled, the 'True and 'False data types are introduced</span>
+  <span class="kt">'True</span>  <span class="o">::</span> <span class="kt">Bool</span> <span class="c1">-- kind signature (do not confuse with typings)</span>
+  <span class="kt">'False</span> <span class="o">::</span> <span class="kt">Bool</span>
+</code></pre></div></div>
+
+<p>To visualise this you can look at the table below. The right-most column is what the <code class="language-plaintext highlighter-rouge">DataKinds</code> language extension adds in addition to what happens normally when you define a type with <code class="language-plaintext highlighter-rouge">data</code>.</p>
+
+<table class="centeredtable">
+  <thead>
+    <tr>
+      <th style="text-align: center"> </th>
+      <th style="text-align: center">Normally</th>
+      <th style="text-align: center">DataKinds Additions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: center"><strong>Kind-Level</strong></td>
+      <td style="text-align: center"><code class="language-plaintext highlighter-rouge">*</code></td>
+      <td style="text-align: center"><code class="language-plaintext highlighter-rouge">Bool</code></td>
+    </tr>
+    <tr>
+      <td style="text-align: center"><strong>Type-Level</strong></td>
+      <td style="text-align: center"><code class="language-plaintext highlighter-rouge">Bool</code></td>
+      <td style="text-align: center"><code class="language-plaintext highlighter-rouge">'True</code> and <code class="language-plaintext highlighter-rouge">'False</code></td>
+    </tr>
+    <tr>
+      <td style="text-align: center"><strong>Value-level</strong></td>
+      <td style="text-align: center"><code class="language-plaintext highlighter-rouge">True</code> and <code class="language-plaintext highlighter-rouge">False</code></td>
+      <td style="text-align: center"> </td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="gadts">GADTs</h2>
+
+<blockquote>
+  <p><strong>Generalised Algebraic Data Types</strong> (GADTs) allow us to define <strong>more expressive</strong> data type definitions. The language extension is <code class="language-plaintext highlighter-rouge">GADTs</code>.</p>
+</blockquote>
+
+<div class="language-haskell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- ADT syntax</span>
+<span class="kr">data</span> <span class="kt">Vector</span> <span class="n">a</span> <span class="o">=</span> <span class="kt">Nil</span> <span class="o">|</span> <span class="kt">Cons</span> <span class="n">a</span> <span class="p">(</span><span class="kt">Vector</span> <span class="n">a</span><span class="p">)</span>
+  <span class="cm">{- 
+     Behind the scenes we get 
+       Nil :: Vector a
+       Cons :: a -&gt; Vector a -&gt; Vector a 
+  -}</span>
+<span class="c1">-- with GADT syntax</span>
+<span class="kr">data</span> <span class="kt">Vector</span> <span class="n">a</span> <span class="kr">where</span>
+  <span class="kt">Nil</span>  <span class="o">::</span> <span class="kt">Vector</span> <span class="n">a</span>
+  <span class="kt">Cons</span> <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">Vector</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">Vector</span> <span class="n">a</span>
+</code></pre></div></div>
+
+<p>Currently, the <code class="language-plaintext highlighter-rouge">head</code> function on <code class="language-plaintext highlighter-rouge">lists</code> will break if given an empty list. So we can fix that by returning a <code class="language-plaintext highlighter-rouge">Maybe</code> or <code class="language-plaintext highlighter-rouge">Either</code> type and then deal with the result in another function.</p>
+
+<p>But <code class="language-plaintext highlighter-rouge">GADTs</code> together with <strong>another extension,</strong> <code class="language-plaintext highlighter-rouge">XKindSignatures</code>, will allow us to define a <code class="language-plaintext highlighter-rouge">head</code> function for <code class="language-plaintext highlighter-rouge">Vector</code> that will reject an empty list at compile-time – removing the need for us to handle the results of <code class="language-plaintext highlighter-rouge">Maybe</code> or <code class="language-plaintext highlighter-rouge">Either</code>.</p>
+
+<div class="language-haskell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kr">data</span> <span class="kt">Vector</span> <span class="p">(</span><span class="n">n</span> <span class="o">::</span> <span class="kt">Nat</span><span class="p">)</span> <span class="n">a</span> <span class="kr">where</span>
+  <span class="kt">Nil</span>  <span class="o">::</span> <span class="kt">Vector</span> <span class="kt">'Zero</span>
+  <span class="kt">Cons</span> <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">Vector</span> <span class="n">n</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">Vector</span> <span class="p">(</span><span class="kt">'Succ</span> <span class="n">n</span><span class="p">)</span> <span class="n">a</span>
+  
+<span class="n">vhead</span> <span class="o">::</span> <span class="kt">Vector</span> <span class="p">(</span><span class="kt">'Succ</span> <span class="n">n</span><span class="p">)</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span>
+<span class="n">vhead</span> <span class="p">(</span><span class="kt">Cons</span> <span class="n">x</span> <span class="n">xs</span><span class="p">)</span> <span class="o">=</span> <span class="n">x</span>
+
+<span class="kr">data</span> <span class="kt">Nat</span> <span class="kr">where</span>         <span class="c1">-- Behind the scenes we get </span>
+  <span class="kt">Zero</span> <span class="o">::</span> <span class="kt">Nat</span>          <span class="c1">--   'Zero :: Nat</span>
+  <span class="kt">Succ</span> <span class="o">::</span> <span class="kt">Nat</span> <span class="o">-&gt;</span> <span class="kt">Nat</span>   <span class="c1">--   'Succ :: Nat -&gt; Nat</span>
+</code></pre></div></div>
+
+<p>In the new definition of <code class="language-plaintext highlighter-rouge">Vector</code> we have placed a specification on the 1st parameter <code class="language-plaintext highlighter-rouge">n</code>. <code class="language-plaintext highlighter-rouge">(n :: Nat)</code> essentially says that the type <code class="language-plaintext highlighter-rouge">n</code> has to be of <strong>kind</strong> <code class="language-plaintext highlighter-rouge">Nat</code>. And in the new definition of <code class="language-plaintext highlighter-rouge">Nil</code> and <code class="language-plaintext highlighter-rouge">Cons</code>, we are able to specify that <code class="language-plaintext highlighter-rouge">Nil</code> will only accept an element of type <code class="language-plaintext highlighter-rouge">Vector 'Zero</code> and <code class="language-plaintext highlighter-rouge">Cons</code> will always give a <code class="language-plaintext highlighter-rouge">Vector</code> 1 element larger.</p>
+
+<p>In this example, GADTs allow us to specify <strong>more constrained</strong> return types for data constructors.</p>
+
+<h3 id="singleton-types">Singleton Types</h3>
+
+<blockquote>
+  <p>Types where there is a 1:1 correspondence between types and values. Essentially a particular singleton type will only ever have one value that is associated with it.</p>
+</blockquote>
+
+<p>From above we have seen that with <code class="language-plaintext highlighter-rouge">DataKinds</code> and <code class="language-plaintext highlighter-rouge">GADTs</code> we are able to encode information about the value of a certain element through its <strong>type</strong>. In specific cases, we may want to make use of this to define <strong>singleton types</strong>.</p>
+
+<div class="language-haskell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kr">data</span> <span class="kt">SNat</span> <span class="p">(</span><span class="n">n</span> <span class="o">::</span> <span class="kt">Nat</span><span class="p">)</span> <span class="kr">where</span>
+  <span class="kt">SZero</span> <span class="o">::</span> <span class="kt">SNat</span> <span class="kt">'Zero</span>
+  <span class="kt">SSucc</span> <span class="o">::</span> <span class="kt">SNat</span> <span class="n">n</span> <span class="o">-&gt;</span> <span class="kt">SNat</span> <span class="p">(</span><span class="kt">'Succ</span> <span class="n">n</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>In this example, we are defining a singleton type for natural numbers. If we try to define <code class="language-plaintext highlighter-rouge">sone</code> or <code class="language-plaintext highlighter-rouge">stwo</code>, their types will be unique.</p>
+
+<div class="language-haskell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">sone</span> <span class="o">::</span> <span class="kt">SNat</span> <span class="p">(</span><span class="kt">'Succ</span> <span class="kt">'Zero</span><span class="p">)</span>
+<span class="n">sone</span> <span class="o">=</span> <span class="kt">SSucc</span> <span class="kt">SZero</span>
+
+<span class="n">stwo</span> <span class="o">::</span> <span class="kt">SNat</span> <span class="p">(</span><span class="kt">'Succ</span> <span class="p">(</span><span class="kt">'Succ</span> <span class="kt">'Zero</span><span class="p">))</span>
+<span class="n">stwo</span> <span class="o">::</span> <span class="kt">SSucc</span> <span class="n">sone</span>
+</code></pre></div></div>
+
+<h2 id="proxy-types">Proxy Types</h2>
+
+<p>We don’t have types at runtime due to <strong>type erasure</strong>, so we can’t write a function that does something based on a type.</p>
+
+<blockquote>
+  <p>Proxy types allow us work around Haskell’s limitations and convert a representation of a value at the <strong>type level</strong> into a <strong>term level</strong> value.</p>
+</blockquote>
+
+<div class="language-haskell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kr">data</span> <span class="kt">NatProxy</span> <span class="p">(</span><span class="n">a</span> <span class="o">::</span> <span class="kt">Nat</span><span class="p">)</span> <span class="o">=</span> <span class="kt">MkProxy</span>
+</code></pre></div></div>
+
+<p>Here, the kind of <code class="language-plaintext highlighter-rouge">NatProxy</code> is actually <code class="language-plaintext highlighter-rouge">Nat -&gt; *</code>, meaning it takes some type <code class="language-plaintext highlighter-rouge">a</code> of kind <code class="language-plaintext highlighter-rouge">Nat</code> and gives back a type of kind <code class="language-plaintext highlighter-rouge">*</code> which has a value at run-time (kind <code class="language-plaintext highlighter-rouge">Nat</code> does not have a value at run-time).</p>
+
+<p><em>I don’t really know how to explain this succinctly; if you think you are able to, a pull request would be appreciated.</em></p>
+ 
+                
+                <footer class="site-footer">
+                    
+                    <span class="site-footer-owner"><a href="https://github.com/CSRG-Group/dcs-notes.github.io">dcs-notes.github.io</a> is maintained by <a href="https://github.com/CSRG-Group">CSRG-Group</a>.</span>
+                    
+                </footer>
+            </main>
+        </div>
+    </div>
+</body>
+
+</html>
